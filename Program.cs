@@ -185,7 +185,6 @@ class Program
         }
         else
         {
-            Console.WriteLine(items[2]);
             timingPoint.BeatLength = 100.0f / -Convert.ToSingle(items[2]) / 2;
 
             timingPoint.Offset = (int)items[1];
