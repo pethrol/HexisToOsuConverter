@@ -414,7 +414,7 @@ class Program
         svchange.Volume = tp.Volume;
         svchange.Effects = tp.Effects;
 
-        svchange.BeatLength = -(10000 / length) * sliderMultiplier;
+        svchange.BeatLength = -(10000 / length) * sliderMultiplier * rotations;
 
         if(calculateFromTrueSliderLength)
         {
@@ -476,7 +476,7 @@ class Program
 
         int tickrate = (int)items[7];
 
-        tickrateTimingPoint.BeatLength = -(10000 / length) * sliderMultiplier * tickrate;
+        tickrateTimingPoint.BeatLength = -(10000 / length) * sliderMultiplier * tickrate * rotations;
 
         if (calculateFromTrueSliderLength)
         {
