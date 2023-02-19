@@ -432,17 +432,18 @@ class Program
 
         //last used timing point
         TimingPoint tp = null;
-
+        Console.WriteLine((int)items[1]);
         foreach (var tpoint in beatmap.TimingPoints)
         {
-            if (tpoint.Offset < (int)items[1])
+            if (tpoint.Offset <= (int)items[1])
             {
+                
                 tp = tpoint;
             }
         }
         if(tp == null)
         {
-            Console.WriteLine("Error occured while converting hold note.");
+            Console.WriteLine("Error occured while converting hold note. Missing timing point before holdnote.");
             throw new Exception("Cannot convert holdnote");
         }
 
@@ -532,11 +533,11 @@ class Program
 
         int tickrate = (int)items[7];
 
-        tickrateTimingPoint.BeatLength = -(10000 / length) * sliderMultiplier * tickrate * rotations;
+        tickrateTimingPoint.BeatLength = -(10000 / length) * sliderMultiplier * tickrate * rotations / beatmap.DifficultySection.SliderTickRate;
 
         if (calculateFromTrueSliderLength)
         {
-            tickrateTimingPoint.BeatLength = -(((10000 / length) * sliderMultiplier) * trueSliderLength * tickrate);
+            tickrateTimingPoint.BeatLength = -(((10000 / length) * sliderMultiplier) * trueSliderLength * tickrate ) / beatmap.DifficultySection.SliderTickRate;
         }
         holdNotesTimeSpans.Add(new Tuple<int, int>(tickrateTimingPoint.Offset, endTimingPoint.Offset));
 
@@ -712,7 +713,7 @@ class Program
                             beatmapToExport.HitObjects.Add(stuff.Item1);
                             if(stuff.Item2 != null)
                             {
-                                Console.WriteLine(stuff.Item2.Offset + " " + stuff.Item2.BeatLength);
+                                //Console.WriteLine(stuff.Item2.Offset + " " + stuff.Item2.BeatLength);
                                 beatmapToExport.TimingPoints.Add(stuff.Item2);
                             }
 
