@@ -61,7 +61,7 @@ class Program
         section.CircleSize = (int)items[1];
         section.OverallDifficulty = (int)items[2];
         section.ApproachRate = (int)items[3];
-        section.SliderMultiplier = (float)items[4] / 2;
+        section.SliderMultiplier = Convert.ToSingle(items[4]) / 2;
         section.SliderTickRate = (int)items[5];
 
 
@@ -153,12 +153,14 @@ class Program
         return section;
     }
 
-    public static TimingPoint convertTimingPoint(string _string) {
+    public static Tuple<TimingPoint, TimingPoint?> convertTimingPoint(string _string) {
         ArrayList items = SplitAttributes(_string);
         TimingPoint timingPoint = new TimingPoint();
         timingPoint.Inherited = (bool)items[0];
 
-        if ((bool)items[0] == false)
+        TimingPoint additionalAfterNonInherited = null;
+
+        if (timingPoint.Inherited == false)
         {
             timingPoint.Offset = (int)items[1];
 
@@ -182,6 +184,38 @@ class Program
                 timingPoint.Effects = OsuParsers.Enums.Beatmaps.Effects.Kiai;
             else
                 timingPoint.Effects = OsuParsers.Enums.Beatmaps.Effects.None;
+
+
+
+
+
+
+
+            additionalAfterNonInherited = new();
+            additionalAfterNonInherited.Inherited = true;
+
+            additionalAfterNonInherited.BeatLength = 100.0f / -1 / 2;
+
+            additionalAfterNonInherited.Offset = (int)items[1];
+
+            if ((int)items[3] == 4)
+                additionalAfterNonInherited.TimeSignature = OsuParsers.Enums.Beatmaps.TimeSignature.SimpleQuadruple;
+            if ((int)items[3] == 3)
+                additionalAfterNonInherited.TimeSignature = OsuParsers.Enums.Beatmaps.TimeSignature.SimpleTriple;
+
+            if ((int)items[4] == 1)
+                additionalAfterNonInherited.SampleSet = OsuParsers.Enums.Beatmaps.SampleSet.Normal;
+            if ((int)items[4] == 2)
+                additionalAfterNonInherited.SampleSet = OsuParsers.Enums.Beatmaps.SampleSet.Soft;
+
+            additionalAfterNonInherited.CustomSampleSet = (int)items[5];
+
+            additionalAfterNonInherited.Volume = (int)items[6];
+
+            if ((bool)items[7])
+                additionalAfterNonInherited.Effects = OsuParsers.Enums.Beatmaps.Effects.Kiai;
+            else
+                additionalAfterNonInherited.Effects = OsuParsers.Enums.Beatmaps.Effects.None;
         }
         else
         {
@@ -207,9 +241,8 @@ class Program
                 timingPoint.Effects = OsuParsers.Enums.Beatmaps.Effects.Kiai;
             else
                 timingPoint.Effects = OsuParsers.Enums.Beatmaps.Effects.None;
-
         }
-        return timingPoint;
+        return new Tuple<TimingPoint, TimingPoint?>(timingPoint, additionalAfterNonInherited);
     }
 
     public static HitSoundType getHitsound(int val)
@@ -378,23 +411,42 @@ class Program
 
     }
 
-    public static Tuple<Slider, TimingPoint, TimingPoint, TimingPoint> convertHoldNote(string _string, TimingPoint tp, double timeForBeat, double sliderMultiplier)
+    public static Tuple<Slider, TimingPoint, TimingPoint?, TimingPoint> convertHoldNote(string _string, Beatmap beatmap, double timeForBeat, double sliderMultiplier)
     {
         ArrayList items = SplitAttributes(_string);
 
 
         var headPos = new Vector2((int)items[2], (int)items[3]);
 
-        int rotations = Convert.ToInt32(((int)items[6] - (int)items[1]) / timeForBeat);
+        double calcRotations = Convert.ToDouble(((int)items[6] - (int)items[1])) / timeForBeat;
 
         double trueSliderLength = ((int)items[6] - (int)items[1]) / timeForBeat;
+        int rotations = 0;
+
+        rotations = Convert.ToInt32(calcRotations);
         bool calculateFromTrueSliderLength = false;
-        if (rotations < 1) {
+        if (calcRotations < 1) {
             calculateFromTrueSliderLength = true;
             rotations = 1;
         }
 
-        
+        //last used timing point
+        TimingPoint tp = null;
+
+        foreach (var tpoint in beatmap.TimingPoints)
+        {
+            if (tpoint.Offset < (int)items[1])
+            {
+                tp = tpoint;
+            }
+        }
+        if(tp == null)
+        {
+            Console.WriteLine("Error occured while converting hold note.");
+            throw new Exception("Cannot convert holdnote");
+        }
+
+
         List<Vector2> points = getHoldCircle(rotations, headPos);
         double length = 0;
         for (int i = 0; i < rotations; ++i) {
@@ -453,6 +505,10 @@ class Program
             0
             );
         }
+
+        
+
+
         TimingPoint endTimingPoint = new();
         endTimingPoint.Offset = (int)items[1] + Convert.ToInt32(timeForBeat * trueSliderLength);
         endTimingPoint.Inherited = true;
@@ -483,7 +539,8 @@ class Program
             tickrateTimingPoint.BeatLength = -(((10000 / length) * sliderMultiplier) * trueSliderLength * tickrate);
         }
         holdNotesTimeSpans.Add(new Tuple<int, int>(tickrateTimingPoint.Offset, endTimingPoint.Offset));
-        return new Tuple<Slider, TimingPoint, TimingPoint, TimingPoint>(holdNote, svchange, endTimingPoint, tickrateTimingPoint);
+
+        return new Tuple<Slider, TimingPoint, TimingPoint?, TimingPoint>(holdNote, svchange, endTimingPoint, tickrateTimingPoint);
     }
    
     public static void Transform(string hexisPath, string beatmapPath)
@@ -495,7 +552,7 @@ class Program
             reader = new XmlTextReader(hexisPath);
             reader.WhitespaceHandling = WhitespaceHandling.None;
 
-            Beatmap testBeatmap = new Beatmap();
+            Beatmap beatmapToExport = new Beatmap();
 
             while (reader.Read())
             {
@@ -511,8 +568,10 @@ class Program
                             if (i < reader.AttributeCount - 1)
                                 line += "%";
                         }
-                        TimingPoint tp = convertTimingPoint(line);
-                        testBeatmap.TimingPoints.Add(tp);
+                        Tuple<TimingPoint, TimingPoint?> tps = convertTimingPoint(line);
+                        beatmapToExport.TimingPoints.Add(tps.Item1);
+                        if (tps.Item2 != null)
+                            beatmapToExport.TimingPoints.Add(tps.Item2);
                     }
 
                     if (reader.Name == "general")
@@ -525,7 +584,7 @@ class Program
                                 line += "%";
                         }
 
-                        testBeatmap.GeneralSection = convertGeneralSection(line);
+                        beatmapToExport.GeneralSection = convertGeneralSection(line);
                     }
 
                     if (reader.Name == "meta")
@@ -538,7 +597,7 @@ class Program
                                 line += "%";
                         }
 
-                        testBeatmap.MetadataSection = convertMetaDataSection(line);
+                        beatmapToExport.MetadataSection = convertMetaDataSection(line);
                     }
 
                     if (reader.Name == "difficulty")
@@ -551,14 +610,14 @@ class Program
                                 line += "%";
                         }
 
-                        testBeatmap.DifficultySection = convertDifficultySection(line);
+                        beatmapToExport.DifficultySection = convertDifficultySection(line);
                     }
 
                     if (reader.Name == "hit-object")
                     {
                         int type = -1;
                         if (!int.TryParse(reader.GetAttribute(0), out type))
-                            throw new Exception("Kurwa coś się odjebało.");
+                            throw new Exception("Something went wrong with parsing hit-object.");
 
                         if (type == 1) // HitCircle
                         {
@@ -571,7 +630,7 @@ class Program
                             }
                             HitCircle cs = convertHitCircle(line);
 
-                            testBeatmap.HitObjects.Add(cs);
+                            beatmapToExport.HitObjects.Add(cs);
 
                         }
 
@@ -609,7 +668,7 @@ class Program
                             //  lapiesz skurwysynów w liste
                             // i patrzysz ile ich jest (discord pedros)
 
-                            testBeatmap.HitObjects.Add(slider);
+                            beatmapToExport.HitObjects.Add(slider);
                         }
 
                         if (type == 4) // Spinner
@@ -623,7 +682,7 @@ class Program
                             }
 
                             Spinner spinner = convertSpinner(line);
-                            testBeatmap.HitObjects.Add(spinner);
+                            beatmapToExport.HitObjects.Add(spinner);
 
                         }
 
@@ -636,10 +695,10 @@ class Program
                                 if (i < reader.AttributeCount - 1)
                                     line += "%";
                             }
-                            TimingPoint ostatnioUzyty = testBeatmap.TimingPoints[testBeatmap.TimingPoints.Count - 1];
+                            //TimingPoint ostatnioUzyty = beatmapToExport.TimingPoints[beatmapToExport.TimingPoints.Count - 1];
 
                             double timeForBeat = 0;
-                            foreach (var tp in testBeatmap.TimingPoints)
+                            foreach (var tp in beatmapToExport.TimingPoints)
                             {
                                 if (!tp.Inherited)
                                 {
@@ -647,12 +706,17 @@ class Program
                                 }
                             }
 
-                            Tuple<Slider, TimingPoint, TimingPoint, TimingPoint> stuff = convertHoldNote(line, ostatnioUzyty, timeForBeat, testBeatmap.DifficultySection.SliderMultiplier);
+                            Tuple<Slider, TimingPoint, TimingPoint?, TimingPoint> stuff = convertHoldNote(line, beatmapToExport, timeForBeat, beatmapToExport.DifficultySection.SliderMultiplier);
 
-                            testBeatmap.TimingPoints.Add(stuff.Item4);
-                            testBeatmap.HitObjects.Add(stuff.Item1);
-                            testBeatmap.TimingPoints.Add(stuff.Item2);
-                            testBeatmap.TimingPoints.Add(stuff.Item3);
+                            beatmapToExport.TimingPoints.Add(stuff.Item4);
+                            beatmapToExport.HitObjects.Add(stuff.Item1);
+                            if(stuff.Item2 != null)
+                            {
+                                Console.WriteLine(stuff.Item2.Offset + " " + stuff.Item2.BeatLength);
+                                beatmapToExport.TimingPoints.Add(stuff.Item2);
+                            }
+
+                            beatmapToExport.TimingPoints.Add(stuff.Item3);
 
 
                         }
@@ -669,7 +733,7 @@ class Program
                                 line += "%";
                         }
 
-                        testBeatmap.EventsSection = convertEventSection(line);
+                        beatmapToExport.EventsSection = convertEventSection(line);
                     }
 
                     if (reader.Name == "combo")
@@ -682,7 +746,7 @@ class Program
                                 line += "%";
                         }
 
-                        testBeatmap.ColoursSection = convertColourSection(line);
+                        beatmapToExport.ColoursSection = convertColourSection(line);
                     }
 
 
@@ -690,15 +754,15 @@ class Program
                 }
             }
 
-            testBeatmap.EditorSection.DistanceSpacing = 1;
-            testBeatmap.EditorSection.BeatDivisor = 4;
-            testBeatmap.EditorSection.GridSize = 4;
-            testBeatmap.EditorSection.TimelineZoom = 2;
+            beatmapToExport.EditorSection.DistanceSpacing = 1;
+            beatmapToExport.EditorSection.BeatDivisor = 4;
+            beatmapToExport.EditorSection.GridSize = 4;
+            beatmapToExport.EditorSection.TimelineZoom = 2;
 
 
 
 
-            testBeatmap.Save(beatmapPath);
+            beatmapToExport.Save(beatmapPath);
 
             FixTimingPointsByPoint5(beatmapPath);
 
