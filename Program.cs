@@ -368,11 +368,11 @@ class Program
         return slider;
     }
 
-    public static List<Vector2> getHoldCircle(int rotations, Vector2 headPosition)
+    public static List<Vector2> getHoldCircle(double rotations, Vector2 headPosition)
     {
         List<Vector2> points = new();
 
-        for(int i=0; i<rotations; ++i) {
+        for(double i=0; i<rotations; ++i) {
             points.Add(new Vector2(headPosition.X, headPosition.Y + 4));
             points.Add(new Vector2(headPosition.X, headPosition.Y + 4));
 
@@ -397,13 +397,70 @@ class Program
 
             points.Add(new Vector2(headPosition.X + 3, headPosition.Y + 3));
             points.Add(new Vector2(headPosition.X + 3, headPosition.Y + 3));
+        }
+        points.Add(new Vector2(headPosition.X, headPosition.Y + 4));
+        points.Add(new Vector2(headPosition.X, headPosition.Y + 4));
+
+
+        //Console.WriteLine(rotations % 1);
+        if (rotations % 1 >= (0.125 * 1))
+        {
+            points.Add(new Vector2(headPosition.X, headPosition.Y + 4));
+            points.Add(new Vector2(headPosition.X, headPosition.Y + 4));
+            points.Add(new Vector2(headPosition.X - 3, headPosition.Y + 3));
+            points.Add(new Vector2(headPosition.X - 3, headPosition.Y + 3));
+        }
+        if (rotations % 1 >= (0.125 * 2))
+        {
+            points.Add(new Vector2(headPosition.X - 3, headPosition.Y + 3));
+            points.Add(new Vector2(headPosition.X - 3, headPosition.Y + 3));
+            points.Add(new Vector2(headPosition.X - 4, headPosition.Y));
+            points.Add(new Vector2(headPosition.X - 4, headPosition.Y));
+        }
+        if (rotations % 1 >= (0.125 * 3))
+        {
+            points.Add(new Vector2(headPosition.X - 4, headPosition.Y));
+            points.Add(new Vector2(headPosition.X - 4, headPosition.Y));
+            points.Add(new Vector2(headPosition.X - 3, headPosition.Y - 3));
+            points.Add(new Vector2(headPosition.X - 3, headPosition.Y - 3));
+        }
+        if (rotations % 1 >= (0.125 * 4))
+        {
+            points.Add(new Vector2(headPosition.X - 3, headPosition.Y - 3));
+            points.Add(new Vector2(headPosition.X - 3, headPosition.Y - 3));
+            points.Add(new Vector2(headPosition.X, headPosition.Y - 4));
+            points.Add(new Vector2(headPosition.X, headPosition.Y - 4));
 
         }
+        if (rotations % 1 >= (0.125 * 5))
+        {
+            points.Add(new Vector2(headPosition.X, headPosition.Y - 4));
+            points.Add(new Vector2(headPosition.X, headPosition.Y - 4));
+            points.Add(new Vector2(headPosition.X + 3, headPosition.Y - 3));
+            points.Add(new Vector2(headPosition.X + 3, headPosition.Y - 3));
+        }
+        if (rotations % 1 >= (0.125 * 6))
+        {
+            points.Add(new Vector2(headPosition.X + 3, headPosition.Y - 3));
+            points.Add(new Vector2(headPosition.X + 3, headPosition.Y - 3));
+            points.Add(new Vector2(headPosition.X + 4, headPosition.Y));
+            points.Add(new Vector2(headPosition.X + 4, headPosition.Y));
 
-        points.Add(new Vector2(headPosition.X, headPosition.Y + 4));
-        points.Add(new Vector2(headPosition.X, headPosition.Y + 4));
+        }
+        if (rotations % 1 >= (0.125 * 7))
+        {
+            points.Add(new Vector2(headPosition.X + 4, headPosition.Y));
+            points.Add(new Vector2(headPosition.X + 4, headPosition.Y));
+            points.Add(new Vector2(headPosition.X, headPosition.Y + 4));
+            points.Add(new Vector2(headPosition.X, headPosition.Y + 4));
+        }
+
+
+
 
         points.Add(headPosition);
+
+       
 
 
         return points;
@@ -419,6 +476,7 @@ class Program
         var headPos = new Vector2((int)items[2], (int)items[3]);
 
         double calcRotations = Convert.ToDouble(((int)items[6] - (int)items[1])) / timeForBeat;
+        calcRotations = Math.Round(calcRotations, 2);
 
         double trueSliderLength = ((int)items[6] - (int)items[1]) / timeForBeat;
         int rotations = 0;
@@ -432,7 +490,7 @@ class Program
 
         //last used timing point
         TimingPoint tp = null;
-        Console.WriteLine((int)items[1]);
+        // Console.WriteLine((int)items[1]);
         foreach (var tpoint in beatmap.TimingPoints)
         {
             if (tpoint.Offset <= (int)items[1])
@@ -448,11 +506,13 @@ class Program
         }
 
 
-        List<Vector2> points = getHoldCircle(rotations, headPos);
+        List<Vector2> points = getHoldCircle(calcRotations, headPos);
         double length = 0;
-        for (int i = 0; i < rotations; ++i) {
+        for (int i = 0; i < calcRotations; ++i) {
             length += 25.298221281347;
         }
+
+        length += (calcRotations % 1) * 25.298221281347;
 
         length += 8;
 
@@ -467,12 +527,12 @@ class Program
         svchange.Volume = tp.Volume;
         svchange.Effects = tp.Effects;
 
-        svchange.BeatLength = -(10000 / length) * sliderMultiplier * rotations;
+        svchange.BeatLength = -(10000 / length) * sliderMultiplier * calcRotations;
 
-        if(calculateFromTrueSliderLength)
+        /*if(calculateFromTrueSliderLength)
         {
             svchange.BeatLength = - (((10000 / length) * sliderMultiplier) * trueSliderLength);
-        }
+        }*/
 
         Slider holdNote = null;
         if(items.Count > 8)
